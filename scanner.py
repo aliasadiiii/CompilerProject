@@ -1,43 +1,127 @@
 from collections import defaultdict
-import re
+import string
 
 
 class ScannerException(Exception):
+    def __init__(self, message):
+        self.message = message
+        super(ScannerException, self).__init__()
+
+
+class DFAException(Exception):
     pass
 
 
-def tokenize_pattern(input_str, pointer, pattern):
+def is_valid(char):
+    if char.isalpha():
+        return True
+
+    if char.isdigit():
+        return True
+
+    return char in ['*', '=', '/', '[', ']', '{', '}', '(', ')', ':', ';', ',',
+                    '<', '+', '-', '\n', ' ', '\t', '\r', '\f', '\v']
+
+
+class DFA(object):
+    def __init__(self, start_state, transition_function, accept_states):
+        self.current_state = start_state
+        self.transition_function = transition_function
+        self.accept_states = accept_states
+
+    def next_state(self, char):
+        for key in self.transition_function.keys():
+            if self.current_state == key[0] and char in key[1]:
+                self.current_state = self.transition_function[key]
+                return True
+
+        if not is_valid(char):
+            raise DFAException()
+
+        return False
+
+    def is_accepted(self):
+        return self.current_state in self.accept_states
+
+
+def tokenize_pattern(token_type, input_str, pointer, dfa):
     used_chars = 0
-    regex = re.compile(pattern, flags=re.DOTALL)
     result = ''
 
     while pointer + used_chars < len(input_str):
         char = input_str[pointer + used_chars]
-        tmp = result + char
+        try:
+            done = dfa.next_state(char)
+            if not done:
+                break
 
-        if regex.fullmatch(tmp) is not None:
-            result = tmp
             used_chars += 1
-        else:
-            break
+            result += char
+        except DFAException:
+            if token_type == 'W':
+                break
+            result += char
+            raise ScannerException(result)
 
-    return used_chars, result
-
-
-def tokenize_comment(input_str, pointer):
-    return tokenize_pattern(input_str, pointer, r'/\*.*\*/|//.*\n')
-
-
-def tokenize_number(input_str, pointer):
-    return tokenize_pattern(input_str, pointer, r'[0-9]+')
-
-
-def tokenize_identifier(input_str, pointer):
-    return tokenize_pattern(input_str, pointer, r'[a-zA-Z][a-zA-Z0-9]*')
+    if dfa.is_accepted() or used_chars == 0:
+        return used_chars, result
+    else:
+        if pointer + used_chars < len(input_str):
+            result += input_str[pointer + used_chars]
+        raise ScannerException(result)
 
 
-def tokenize_keyword(input_str, pointer):
-    used_chars, result = tokenize_identifier(input_str, pointer)
+def tokenize_comment(token_type, input_str, pointer):
+    dfa = DFA(
+        start_state=0,
+        transition_function={
+            (0, '/'): 1,
+            (1, '/'): 2,
+            (2, '\n'): 3,
+            (2, string.printable.replace('\n', '')): 2,
+            (1, '*'): 4,
+            (4, '*'): 5,
+            (5, '*'): 5,
+            (5, '/'): 6,
+            (4, string.printable.replace('/', '').replace('*', '')): 4,
+            (5, string.printable.replace('/', '')): 4
+        },
+        accept_states=[3, 6]
+    )
+    return tokenize_pattern(token_type, input_str, pointer, dfa)
+
+
+def tokenize_number(token_type, input_str, pointer):
+    dfa = DFA(
+        start_state=0,
+        transition_function={
+            (0, string.digits): 0
+        },
+        accept_states=[0]
+    )
+
+    return tokenize_pattern(token_type, input_str, pointer, dfa)
+
+
+def tokenize_identifier(token_type, input_str, pointer):
+    dfa = DFA(
+        start_state=0,
+        transition_function={
+            (0, string.ascii_letters): 1,
+            (1, string.ascii_letters + string.digits): 1
+        },
+        accept_states=[1]
+    )
+
+    return tokenize_pattern(token_type, input_str, pointer, dfa)
+
+
+def tokenize_keyword(token_type, input_str, pointer):
+    try:
+        used_chars, result = tokenize_identifier(token_type, input_str, pointer)
+    except ScannerException:
+        return 0, ''
+
     keywords = ['if', 'else', 'void', 'int', 'while', 'break', 'continue'
                                                                'switch',
                 'default', 'case', 'return']
@@ -47,13 +131,29 @@ def tokenize_keyword(input_str, pointer):
     return 0, ''
 
 
-def tokenize_symbol(input_str, pointer):
-    return tokenize_pattern(input_str, pointer,
-                            r'\;|\:|\,|\[|\]|\(|\)|\{|\}|\+|\-|\*|\=|\=|\<|\=\=')
+def tokenize_symbol(token_type, input_str, pointer):
+    dfa = DFA(
+        start_state=0,
+        transition_function={
+            (0, ';:,[](){}+-*<'): 1,
+            (0, '='): 2,
+            (2, '='): 1
+        },
+        accept_states=[1, 2]
+    )
+    return tokenize_pattern(token_type, input_str, pointer, dfa)
 
 
-def skip_whitespace(input_str, pointer):
-    return tokenize_pattern(input_str, pointer, '(\r|\t|\v|\f| )*\n?')
+def skip_whitespace(token_type, input_str, pointer):
+    dfa = DFA(
+        start_state=0,
+        transition_function={
+            (0, '\r\f\v\t\n '): 0
+        },
+        accept_states=[0]
+    )
+
+    return tokenize_pattern(token_type, input_str, pointer, dfa)
 
 
 def _tokenize(input_str, pointer):
@@ -65,11 +165,11 @@ def _tokenize(input_str, pointer):
                   (tokenize_symbol, 'SYMBOL')]
 
     for tokenizer, token_type in tokenizers:
-        used_chars, result = tokenizer(input_str, pointer)
+        used_chars, result = tokenizer(token_type, input_str, pointer)
         if used_chars > 0:
             return token_type, result
 
-    raise ScannerException()
+    raise ScannerException(input_str[pointer])
 
 
 def tokenize_file(input_file, output_file, error_file):
@@ -84,27 +184,25 @@ def tokenize_file(input_file, output_file, error_file):
         line_number = input_str[0:pointer].count('\n')
         try:
             token_type, token = _tokenize(input_str, pointer)
-            if token_type != 'W':
+            if token_type not in ['W', 'COMMENT']:
                 tokens[line_number].append((token_type, token))
-        except ScannerException:
-            token = input_str[pointer]
+        except ScannerException as e:
+            token = e.message
             errors[line_number].append((token, 'invalid input'))
 
         pointer += len(token)
 
     with open(output_file, 'w') as f:
-        max_length = max(tokens.keys()) + 1
-        for i in range(max_length):
-            output = '%s.' % (i+1)
+        for i in tokens.keys():
+            output = '%s.' % (i + 1)
             for token in tokens[i]:
-                output += ' %s' % str(token)
+                output += ' (%s, %s)' % (token[0], token[1])
             f.write(output + '\n')
 
     with open(error_file, 'w') as f:
         if errors:
-            max_length = max(errors.keys()) + 1
-            for i in range(max_length):
-                output = '%s.' % (i+1)
+            for i in errors.keys():
+                output = '%s.' % (i + 1)
                 for error in errors[i]:
                     output += ' %s' % str(error)
                 f.write(output + '\n')
