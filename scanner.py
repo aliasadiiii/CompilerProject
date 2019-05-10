@@ -1,4 +1,3 @@
-from collections import defaultdict
 import string
 
 
@@ -156,7 +155,7 @@ def skip_whitespace(token_type, input_str, pointer):
     return tokenize_pattern(token_type, input_str, pointer, dfa)
 
 
-def _tokenize(input_str, pointer):
+def tokenize(input_str, pointer):
     tokenizers = [(tokenize_keyword, 'KEYWORD'),
                   (tokenize_comment, 'COMMENT'),
                   (tokenize_identifier, 'ID'),
@@ -170,39 +169,3 @@ def _tokenize(input_str, pointer):
             return token_type, result
 
     raise ScannerException(input_str[pointer])
-
-
-def tokenize_file(input_file, output_file, error_file):
-    with open(input_file) as f:
-        input_str = f.read()
-
-    tokens = defaultdict(list)
-    errors = defaultdict(list)
-    pointer = 0
-
-    while pointer < len(input_str):
-        line_number = input_str[0:pointer].count('\n')
-        try:
-            token_type, token = _tokenize(input_str, pointer)
-            if token_type not in ['W', 'COMMENT']:
-                tokens[line_number].append((token_type, token))
-        except ScannerException as e:
-            token = e.message
-            errors[line_number].append((token, 'invalid input'))
-
-        pointer += len(token)
-
-    with open(output_file, 'w') as f:
-        for i in tokens.keys():
-            output = '%s.' % (i + 1)
-            for token in tokens[i]:
-                output += ' (%s, %s)' % (token[0], token[1])
-            f.write(output + '\n')
-
-    with open(error_file, 'w') as f:
-        if errors:
-            for i in errors.keys():
-                output = '%s.' % (i + 1)
-                for error in errors[i]:
-                    output += ' %s' % str(error)
-                f.write(output + '\n')
