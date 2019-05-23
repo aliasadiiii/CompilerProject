@@ -10,14 +10,33 @@ class ParserException(Exception):
 
 
 class Diagram(object):
-    def __init__(self, grammars, first_set, follow_set):
-        self.non_terminals = non_terminals
-        self.actions = actions
-        self.accept_states = accept_states
+    def __init__(self, grammar, first_set, follow_set):
+        self.non_terminals = grammar.keys()
+
+        self.actions = {}
+        self.accept_states = {}
+        for non_terminal in grammar.keys():
+            graph, accept_state = Diagram.create_graph(grammar[non_terminal])
+            self.actions[non_terminal] = graph
+            self.accept_states[non_terminal] = accept_state
+
         self.first_set = first_set
         self.follow_set = follow_set
-        self.stack = [('program', 0)]  # list of pair (non_terminal, state)
-        self.parse_tree = [('program', 0)]
+        self.stack = [('Program', 0)]  # list of pair (non_terminal, state)
+        self.parse_tree = [('Program', 0)]
+
+    @staticmethod
+    def create_graph(rules):
+        graph = defaultdict(dict)
+        current_state = 2
+        for rule in rules:
+            last_state = 0
+            for part in rule[:-1]:
+                graph[last_state].update({part: current_state})
+                last_state = current_state
+                current_state += 1
+            graph[last_state].update({rule[-1]: 1})
+        return graph, 1
 
     def move_forward(self, terminal):
         last_non_terminal, last_state = self.stack[-1]
@@ -25,7 +44,7 @@ class Diagram(object):
             self.stack.pop()
             return False
 
-        for key, value in self.actions[last_non_terminal][last_state]:
+        for key, value in self.actions[last_non_terminal][last_state].items():
             if key not in self.non_terminals:
                 if key == 'eps' and terminal in \
                         self.follow_set[last_non_terminal]:
@@ -34,7 +53,7 @@ class Diagram(object):
 
                 if key == terminal:
                     self.stack[-1] = (last_non_terminal, value)
-                    self.parse_tree.append((value, len(self.stack)))
+                    self.parse_tree.append((key, len(self.stack)))
                     return True
                 continue
 
@@ -42,17 +61,18 @@ class Diagram(object):
                     ('eps' in self.first_set[key] and
                      terminal in self.follow_set[key]):
                 self.stack[-1] = (last_non_terminal, value)
-                self.parse_tree.append((value, len(self.stack)))
+                self.parse_tree.append((key, len(self.stack)))
                 self.stack.append((key, 0))
                 return False
 
-        key, value = self.actions[last_non_terminal][last_state].items()[0]
+        key, value = list(self.actions[last_non_terminal]
+                          [last_state].items())[0]
         if key not in self.non_terminals:
             raise ParserException(message="Syntax Error! Missing #%s" % key)
         else:
             if terminal in self.follow_set[key]:
                 self.stack[-1] = (last_non_terminal, value)
-                self.parse_tree.append((value, len(self.stack)))
+                self.parse_tree.append((key, len(self.stack)))
                 self.stack.append((key, 0))
                 raise ParserException(message="Syntax Error! Missing #%s" % key)
 
@@ -75,6 +95,7 @@ class Parser(object):
             try:
                 token_type, token = tokenize(input_str, pointer)
                 if token_type in ['W', 'COMMENT']:
+                    pointer += len(token)
                     continue
 
                 terminal = token if token_type in ['SYMBOL', 'KEYWORD'] \
@@ -114,13 +135,30 @@ def parse_file(input_file, grammar_file, first_set_file, follow_set_file,
         input_str = f.read()
 
     with open(grammar_file) as f:
-        grammars = f.readlines()
-    with open(first_set_file) as f:
-        first_set = f.readlines()
-    with open(follow_set_file) as f:
-        follow_set = f.readlines()
+        rules = f.readlines()
+        grammar = defaultdict(list)
+        for rule in rules:
+            rule = rule.split('\n')[0].strip()
+            lhs, rhs = rule.split(' -> ')
+            grammar[lhs] = [rr.split(' ') for rr in rhs.split(' | ')]
 
-    diagram = Diagram(grammars, first_set, follow_set)
+    with open(first_set_file) as f:
+        lines = f.readlines()
+        first_set = defaultdict(list)
+        for line in lines:
+            line = line.split('\n')[0].strip()
+            lhs, *rhs = line.split(' ')
+            first_set[lhs] = rhs
+
+    with open(follow_set_file) as f:
+        lines = f.readlines()
+        follow_set = defaultdict(list)
+        for line in lines:
+            line = line.split('\n')[0].strip()
+            lhs, *rhs = line.split(' ')
+            follow_set[lhs] = rhs
+
+    diagram = Diagram(grammar, first_set, follow_set)
     parser = Parser(diagram)
     parse_tree, scanner_errors, parser_errors = parser.parse(input_str)
 

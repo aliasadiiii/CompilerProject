@@ -121,9 +121,8 @@ def tokenize_keyword(token_type, input_str, pointer):
     except ScannerException:
         return 0, ''
 
-    keywords = ['if', 'else', 'void', 'int', 'while', 'break', 'continue'
-                                                               'switch',
-                'default', 'case', 'return']
+    keywords = ['if', 'else', 'void', 'int', 'while', 'break', 'continue',
+                'switch', 'default', 'case', 'return']
     for keyword in keywords:
         if result == keyword:
             return used_chars, result

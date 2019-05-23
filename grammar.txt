@@ -33,9 +33,9 @@ Relop -> < | ==
 Additive_expression -> Signed_factor Term Additive_exp_end 
 Additive_exp_end -> Addop Additive_expression | eps
 Addop -> + | - 
-Term -> * Term | eps
+Term -> * Signed_factor Term | eps
 Signed_factor -> Factor | + Factor | - Factor 
 Factor -> ( Expression ) | ID Cav | NUM 
 Cav -> ( Args ) | Var 
 Args -> Expression Arg_list | eps
-Arg_list -> , Arg_list | eps
+Arg_list -> , Expression Arg_list | eps
