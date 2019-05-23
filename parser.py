@@ -9,16 +9,15 @@ class ParserException(Exception):
         super(ParserException, self).__init__()
 
 
-class Parser(object):
-    def __init__(self, non_terminals, actions, accept_states, first_set,
-                 follow_set):
+class Diagram(object):
+    def __init__(self, grammars, first_set, follow_set):
         self.non_terminals = non_terminals
         self.actions = actions
         self.accept_states = accept_states
         self.first_set = first_set
         self.follow_set = follow_set
-        self.stack = []  # list of pair (non_terminal, state)
-        self.parse_tree = []
+        self.stack = [('program', 0)]  # list of pair (non_terminal, state)
+        self.parse_tree = [('program', 0)]
 
     def move_forward(self, terminal):
         last_non_terminal, last_state = self.stack[-1]
@@ -60,11 +59,15 @@ class Parser(object):
             raise ParserException(message="Syntax Error! Unexpected #%s" %
                                           terminal)
 
+
+class Parser(object):
+    def __init__(self, diagram):
+        self.diagram = diagram
+
     def parse(self, input_str):
         pointer = 0
-        parse_tree = [('A', 0)]
-        errors = defaultdict(list)
-        self.stack = [('program', 0)]
+        scanner_errors = defaultdict(list)
+        parser_errors = defaultdict(list)
 
         number_of_failure = 0
         while pointer < len(input_str):
@@ -78,39 +81,48 @@ class Parser(object):
                     else token_type
 
                 try:
-                    while not self.move_forward(terminal):
+                    while not self.diagram.move_forward(terminal):
                         pass
                     number_of_failure = 0
                 except ParserException as e:
-                    errors[line_number].append((e.message, 'invalid input'))
+                    parser_errors[line_number].append(e.message)
                     number_of_failure = number_of_failure + 1
 
             except ScannerException as e:
                 token = e.message
-                errors[line_number].append((token, 'invalid input'))
+                scanner_errors[line_number].append(token)
             pointer += len(token)
 
         try:
-            while not self.move_forward('$'):
+            while not self.diagram.move_forward('$'):
                 pass
         except ParserException:
             line_number = input_str.count('\n')
             if number_of_failure > 0:
-                errors[line_number].append(
-                    ("Syntax Error! Unexpected EndOfFile", 'invalid input'))
+                parser_errors[line_number].append(
+                    "Syntax Error! Unexpected EndOfFile")
             else:
-                errors[line_number].append(
-                    ("Syntax Error! Malformed Input", 'invalid input'))
+                parser_errors[line_number].append(
+                    "Syntax Error! Malformed Input")
 
-        return parse_tree, errors
+        return self.diagram.parse_tree, scanner_errors, parser_errors
 
 
-def parse_file(input_file, output_file, error_file):
+def parse_file(input_file, grammar_file, first_set_file, follow_set_file,
+               output_file, error_file):
     with open(input_file) as f:
         input_str = f.read()
 
-    parser = Parser()
-    parse_tree, errors = parser.parse(input_str)
+    with open(grammar_file) as f:
+        grammars = f.readlines()
+    with open(first_set_file) as f:
+        first_set = f.readlines()
+    with open(follow_set_file) as f:
+        follow_set = f.readlines()
+
+    diagram = Diagram(grammars, first_set, follow_set)
+    parser = Parser(diagram)
+    parse_tree, scanner_errors, parser_errors = parser.parse(input_str)
 
     with open(output_file, 'w') as f:
         for action, level in parse_tree:
@@ -118,9 +130,16 @@ def parse_file(input_file, output_file, error_file):
             f.write(output + '\n')
 
     with open(error_file, 'w') as f:
-        if errors:
-            for i in errors.keys():
+        if scanner_errors:
+            for i in scanner_errors.keys():
                 output = '%s.' % (i + 1)
-                for error in errors[i]:
+                for error in scanner_errors[i]:
+                    output += ' %s' % str(error)
+                f.write(output + '\n')
+
+        if parser_errors:
+            for i in parser_errors.keys():
+                output = '%s.' % (i + 1)
+                for error in parser_errors[i]:
                     output += ' %s' % str(error)
                 f.write(output + '\n')

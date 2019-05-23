@@ -209,4 +209,4 @@ dmypy.json
 
 input.txt
 scanner.txt
-lexical_errors.txt
+errors.txt
