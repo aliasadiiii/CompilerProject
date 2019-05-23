@@ -1,0 +1,41 @@
+Program -> Declaration_list $ 
+Declaration_list -> Type_specifier ID Declaration_rest Declaration_list | eps
+Declaration_rest -> Var_declaration_rest | Fun_declaration_rest 
+Var_declaration_rest -> ; | [ NUM ] ; 
+Type_specifier -> int | void 
+Fun_declaration_rest -> ( Params ) Compound_stmt 
+Params -> void Params_rest | Param_list_f 
+Params_rest -> ID Param_rest Param_list_rest | eps
+Param_list_f -> int ID Param_rest Param_list rest 
+Param_list -> Type_specifier ID Param_rest Param_list_rest 
+Param_list_rest -> , Param_list | eps
+Param_rest -> [ ] | eps
+Compound_stmt -> { Declaration_list Statement_list } 
+Statement_list -> Statement Statement_list | eps
+Statement -> Expression_stmt | Compound_stmt | Selection_stmt | Iteration_stmt | return Return_stmt_rest | Switch_stmt 
+Expression_stmt -> Expression ; | continue ; | break ; | ; 
+Selection_stmt -> if ( Expression ) Statement else Statement 
+Iteration_stmt -> while ( Expression ) Statement 
+Return_stmt_rest -> ; | Expression ; 
+Switch_stmt -> switch ( Expression ) { Case_stmts Default_stmt } 
+Case_stmts -> Case_stmt Case_stmts | eps
+Case_stmt -> case NUM : Statement_list 
+Default_stmt -> default : Statement_list | eps
+Expression -> ID Exp_rest | Additive_expression_f Simple_expression 
+Exp_rest -> Var Exp_rest_rest | ( Args ) Term Additive_exp_end 
+Exp_rest_rest -> = Expression | Term Additive_exp_end 
+Additive_expression_f -> Signed_factor_f Term Additive_exp_end 
+Signed_factor_f -> Factor_f | + Factor | - Factor 
+Factor_f -> ( Expression ) | NUM 
+Var -> [ Expression ] | eps
+Simple_expression -> Relop Additive_expression | eps
+Relop -> < | == 
+Additive_expression -> Signed_factor Term Additive_exp_end 
+Additive_exp_end -> Addop Additive_expression | eps
+Addop -> + | - 
+Term -> * Term | eps
+Signed_factor -> Factor | + Factor | - Factor 
+Factor -> ( Expression ) | ID Cav | NUM 
+Cav -> ( Args ) | Var 
+Args -> Expression Arg_list | eps
+Arg_list -> , Arg_list | eps

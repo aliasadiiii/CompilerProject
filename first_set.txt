@@ -1,0 +1,41 @@
+Program $ int void
+Declaration_rest ; [ (
+Var_declaration_rest ; [
+Fun_declaration_rest (
+Params void int
+Params_rest ID eps
+Param_list_f int
+Type_specifier int void
+Param_list_rest , eps
+Param_list int void
+Param_rest [ eps
+Declaration_list int void eps
+Compound_stmt {
+Expression_stmt continue break ; ID + - ( NUM
+Selection_stmt if
+Iteration_stmt while
+Statement return continue break ; { if while switch ID + - ( NUM
+Return_stmt_rest ; ID + - ( NUM
+Switch_stmt switch
+Case_stmts case eps
+Case_stmt case
+Default_stmt default eps
+Statement_list return continue break ; { if while switch ID + - ( NUM eps
+Exp_rest ( [ = * + - eps
+Exp_rest_rest = * + - eps
+Additive_expression_f + - ( NUM
+Signed_factor_f + - ( NUM
+Factor_f ( NUM
+Simple_expression < == eps
+Relop < ==
+Additive_exp_end + - eps
+Additive_expression + - ( ID NUM
+Addop + -
+Term * eps
+Signed_factor + - ( ID NUM
+Factor ( ID NUM
+Cav ( [ eps
+Var [ eps
+Args ID + - ( NUM eps
+Expression ID + - ( NUM
+Arg_list , eps

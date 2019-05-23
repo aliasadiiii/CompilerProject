@@ -1,0 +1,41 @@
+Program
+Declaration_rest int void $ return continue break ; { if while switch ID + - ( NUM }
+Var_declaration_rest int void $ return continue break ; { if while switch ID + - ( NUM }
+Fun_declaration_rest int void $ return continue break ; { if while switch ID + - ( NUM }
+Params )
+Params_rest )
+Param_list_f )
+Type_specifier ID
+Param_list_rest rest )
+Param_list rest )
+Param_rest rest int void , )
+Declaration_list $ return continue break ; { if while switch ID + - ( NUM }
+Compound_stmt case default else int void $ return continue break ; { if while switch ID + - ( NUM }
+Expression_stmt case default return continue break ; { if while switch ID + - ( NUM else }
+Selection_stmt case default return continue break ; { if while switch ID + - ( NUM else }
+Iteration_stmt case default return continue break ; { if while switch ID + - ( NUM else }
+Statement case default return continue break ; { if while switch ID + - ( NUM else }
+Return_stmt_rest case default return continue break ; { if while switch ID + - ( NUM else }
+Switch_stmt case default return continue break ; { if while switch ID + - ( NUM else }
+Case_stmts default }
+Case_stmt case default }
+Default_stmt }
+Statement_list case default }
+Exp_rest ; ] ) ,
+Exp_rest_rest ; ] ) ,
+Additive_expression_f < == ; ] ) ,
+Signed_factor_f * + - < == ; ] ) ,
+Factor_f * + - < == ; ] ) ,
+Simple_expression ; ] ) ,
+Relop + - ( ID NUM
+Additive_exp_end < == ; ] ) ,
+Additive_expression < == ; ] ) ,
+Addop + - ( ID NUM
+Term + - < == ; ] ) ,
+Signed_factor * + - < == ; ] ) ,
+Factor * + - < == ; ] ) ,
+Cav * + - < == ; ] ) ,
+Var = * + - < == ; ] ) ,
+Args )
+Expression ; ] ) ,
+Arg_list )
