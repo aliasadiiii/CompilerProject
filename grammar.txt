@@ -21,9 +21,9 @@ Switch_stmt -> switch ( Expression ) { Case_stmts Default_stmt }
 Case_stmts -> Case_stmt Case_stmts | eps
 Case_stmt -> case NUM : Statement_list 
 Default_stmt -> default : Statement_list | eps
-Expression -> ID Exp_rest | Additive_expression_f Simple_expression 
-Exp_rest -> Var Exp_rest_rest | ( Args ) Term Additive_exp_end 
-Exp_rest_rest -> = Expression | Term Additive_exp_end 
+Expression -> ID Exp_rest | Additive_expression_f Simple_expression
+Exp_rest -> Var Exp_rest_rest | ( Args ) Term Additive_exp_end Simple_expression
+Exp_rest_rest -> = Expression | Term Additive_exp_end Simple_expression
 Additive_expression_f -> Signed_factor_f Term Additive_exp_end 
 Signed_factor_f -> Factor_f | + Factor | - Factor 
 Factor_f -> ( Expression ) | NUM 

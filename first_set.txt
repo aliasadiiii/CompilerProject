@@ -21,8 +21,8 @@ Case_stmts case eps
 Case_stmt case
 Default_stmt default eps
 Statement_list return continue break ; { if while switch ID + - ( NUM eps
-Exp_rest ( [ = * + - eps
-Exp_rest_rest = * + - eps
+Exp_rest ( [ = * + - < == eps
+Exp_rest_rest = * + - < == eps
 Additive_expression_f + - ( NUM
 Signed_factor_f + - ( NUM
 Factor_f ( NUM
