@@ -6,9 +6,9 @@ Params )
 Params_rest )
 Param_list_f )
 Type_specifier ID
-Param_list_rest rest )
-Param_list rest )
-Param_rest rest int void , )
+Param_list_rest )
+Param_list )
+Param_rest , )
 Declaration_list $ return continue break ; { if while switch ID + - ( NUM }
 Compound_stmt case default else int void $ return continue break ; { if while switch ID + - ( NUM }
 Expression_stmt case default return continue break ; { if while switch ID + - ( NUM else }

@@ -6,7 +6,7 @@ Type_specifier -> int | void
 Fun_declaration_rest -> ( Params ) Compound_stmt 
 Params -> void Params_rest | Param_list_f 
 Params_rest -> ID Param_rest Param_list_rest | eps
-Param_list_f -> int ID Param_rest Param_list rest 
+Param_list_f -> int ID Param_rest Param_list_rest 
 Param_list -> Type_specifier ID Param_rest Param_list_rest 
 Param_list_rest -> , Param_list | eps
 Param_rest -> [ ] | eps
