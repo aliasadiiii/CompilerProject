@@ -9,6 +9,12 @@ class ParserException(Exception):
         super(ParserException, self).__init__()
 
 
+class ParserExceptionWithoutSkip(Exception):
+    def __init__(self, message):
+        self.message = message
+        super(ParserExceptionWithoutSkip, self).__init__()
+
+
 class Diagram(object):
     def __init__(self, grammar, first_set, follow_set):
         self.non_terminals = grammar.keys()
@@ -68,13 +74,14 @@ class Diagram(object):
         key, value = list(self.actions[last_non_terminal]
                           [last_state].items())[0]
         if key not in self.non_terminals:
-            raise ParserException(message="Syntax Error! Missing #%s" % key)
+            self.stack[-1] = (last_non_terminal, value)
+            raise ParserExceptionWithoutSkip(
+                message="Syntax Error! Missing #%s" % key)
         else:
             if terminal in self.follow_set[key]:
                 self.stack[-1] = (last_non_terminal, value)
-                self.parse_tree.append((key, len(self.stack)))
-                self.stack.append((key, 0))
-                raise ParserException(message="Syntax Error! Missing #%s" % key)
+                raise ParserExceptionWithoutSkip(
+                    message="Syntax Error! Missing #%s" % key)
 
             raise ParserException(message="Syntax Error! Unexpected #%s" %
                                           terminal)
@@ -102,8 +109,13 @@ class Parser(object):
                     else token_type
 
                 try:
-                    while not self.diagram.move_forward(terminal):
-                        pass
+                    while True:
+                        try:
+                            if self.diagram.move_forward(terminal):
+                                break
+                        except ParserExceptionWithoutSkip as e:
+                            parser_errors[line_number].append(e.message)
+                            number_of_failure = number_of_failure + 1
                     number_of_failure = 0
                 except ParserException as e:
                     parser_errors[line_number].append(e.message)
