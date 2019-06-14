@@ -1,41 +1,41 @@
-Program -> Declaration_list $ 
+Program -> Declaration_list #end-program $
 Declaration_list -> Type_specifier ID Declaration_rest Declaration_list | eps
-Declaration_rest -> Var_declaration_rest | Fun_declaration_rest 
-Var_declaration_rest -> ; | [ NUM ] ; 
-Type_specifier -> int | void 
-Fun_declaration_rest -> ( Params ) Compound_stmt 
-Params -> void Params_rest | Param_list_f 
+Declaration_rest -> Var_declaration_rest | Fun_declaration_rest
+Var_declaration_rest -> ; #int-dec | [ NUM ] ; #arr-dec
+Type_specifier -> int | void
+Fun_declaration_rest -> ( #start-func-dec Params ) #end-func-dec Compound_stmt #end-func
+Params -> void Params_rest | Param_list_f
 Params_rest -> ID Param_rest Param_list_rest | eps
 Param_list_f -> int ID Param_rest Param_list_rest 
 Param_list -> Type_specifier ID Param_rest Param_list_rest 
 Param_list_rest -> , Param_list | eps
-Param_rest -> [ ] | eps
-Compound_stmt -> { Declaration_list Statement_list } 
+Param_rest -> [ ] #func-arr-dec | eps #func-int-dec
+Compound_stmt -> { #start-scope Declaration_list Statement_list } #end-scope
 Statement_list -> Statement Statement_list | eps
 Statement -> Expression_stmt | Compound_stmt | Selection_stmt | Iteration_stmt | return Return_stmt_rest | Switch_stmt 
-Expression_stmt -> Expression ; | continue ; | break ; | ; 
-Selection_stmt -> if ( Expression ) Statement else Statement 
-Iteration_stmt -> while ( Expression ) Statement 
-Return_stmt_rest -> ; | Expression ; 
-Switch_stmt -> switch ( Expression ) { Case_stmts Default_stmt } 
+Expression_stmt -> Expression #pop ; | continue #continue ; | break #break ; | ;
+Selection_stmt -> if ( Expression ) #save Statement else #if-jump Statement #else-jump
+Iteration_stmt -> while ( #label Expression #while-save ) Statement #while
+Return_stmt_rest -> ; #return-call | Expression #return-value ; #return-call
+Switch_stmt -> switch ( #label Expression ) { #start-switch Case_stmts #add2 Default_stmt #switch }
 Case_stmts -> Case_stmt Case_stmts | eps
-Case_stmt -> case NUM : Statement_list 
+Case_stmt -> case NUM : #switch-save Statement_list #case
 Default_stmt -> default : Statement_list | eps
 Expression -> ID Exp_rest | Additive_expression_f Simple_expression
-Exp_rest -> Var Exp_rest_rest | ( Args ) Term Additive_exp_end Simple_expression
-Exp_rest_rest -> = Expression | Term Additive_exp_end Simple_expression
-Additive_expression_f -> Signed_factor_f Term Additive_exp_end 
-Signed_factor_f -> Factor_f | + Factor | - Factor 
-Factor_f -> ( Expression ) | NUM 
-Var -> [ Expression ] | eps
-Simple_expression -> Relop Additive_expression | eps
-Relop -> < | == 
-Additive_expression -> Signed_factor Term Additive_exp_end 
-Additive_exp_end -> Addop Additive_expression | eps
-Addop -> + | - 
-Term -> * Signed_factor Term | eps
-Signed_factor -> Factor | + Factor | - Factor 
+Exp_rest -> Var Exp_rest_rest | ( #start-call Args ) #end-call Term Additive_exp_end Simple_expression
+Exp_rest_rest -> = Expression #assign | Term Additive_exp_end Simple_expression
+Additive_expression_f -> Signed_factor_f Term Additive_exp_end
+Signed_factor_f -> Factor_f | + Factor | - Factor #negate
+Factor_f -> ( Expression ) | NUM
+Var -> [ Expression ] #get-arr | eps #get-int
+Simple_expression -> Relop Additive_expression #relop | eps
+Relop -> < #lt-char | == #eq-char
+Additive_expression -> Signed_factor Term #check-negate Additive_exp_end
+Additive_exp_end -> Addop Additive_expression #addop | eps
+Addop -> + | - #sub-char
+Term -> * Signed_factor #multiply Term | eps
+Signed_factor -> Factor | + Factor | - Factor #negate
 Factor -> ( Expression ) | ID Cav | NUM 
-Cav -> ( Args ) | Var 
-Args -> Expression Arg_list | eps
-Arg_list -> , Expression Arg_list | eps
+Cav -> ( #start-call Args ) #end-call | Var
+Args -> Expression #add-call-arg Arg_list | eps
+Arg_list -> , Expression #add-call-arg Arg_list | eps

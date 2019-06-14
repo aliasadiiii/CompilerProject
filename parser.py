@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+from intermediate_code_generator import IntermediateCodeGenerator, SemanticException
 from scanner import tokenize, ScannerException
 
 
@@ -31,6 +32,8 @@ class Diagram(object):
         self.stack = [('Program', 0)]  # list of pair (non_terminal, state)
         self.parse_tree = [('Program', 0)]
 
+        self.intermediate_code_generator = IntermediateCodeGenerator()
+
     @staticmethod
     def create_graph(rules):
         graph = defaultdict(dict)
@@ -44,13 +47,18 @@ class Diagram(object):
             graph[last_state].update({rule[-1]: 1})
         return graph, 1
 
-    def move_forward(self, terminal):
+    def move_forward(self, terminal, token):
         last_non_terminal, last_state = self.stack[-1]
         if last_state == self.accept_states[last_non_terminal]:
             self.stack.pop()
             return False
 
         for key, value in self.actions[last_non_terminal][last_state].items():
+            if key.startswith('#'):
+                self.stack[-1] = (last_non_terminal, value)
+                self.intermediate_code_generator.run_routine(key[1:])
+                return False
+
             if key not in self.non_terminals:
                 if key == 'eps' and terminal in \
                         self.follow_set[last_non_terminal]:
@@ -58,6 +66,14 @@ class Diagram(object):
                     return False
 
                 if key == terminal:
+                    if key in ('int', 'void', 'ID'):
+                        self.intermediate_code_generator.semantic_stack.append(
+                            token)
+                    if key == 'NUM':
+                        self.intermediate_code_generator.semantic_stack.append(
+                            '#%s' % token
+                        )
+
                     self.stack[-1] = (last_non_terminal, value)
                     self.parse_tree.append((key, len(self.stack)))
                     return True
@@ -95,6 +111,7 @@ class Parser(object):
         pointer = 0
         scanner_errors = defaultdict(list)
         parser_errors = defaultdict(list)
+        semantic_errors = defaultdict(list)
 
         number_of_failure = 0
         while pointer < len(input_str):
@@ -111,15 +128,20 @@ class Parser(object):
                 try:
                     while True:
                         try:
-                            if self.diagram.move_forward(terminal):
+                            if self.diagram.move_forward(terminal, token):
                                 break
                         except ParserExceptionWithoutSkip as e:
                             parser_errors[line_number].append(e.message)
                             number_of_failure = number_of_failure + 1
                     number_of_failure = 0
+                except SemanticException as e:
+                    semantic_errors[line_number].append(e.message)
                 except ParserException as e:
                     parser_errors[line_number].append(e.message)
                     number_of_failure = number_of_failure + 1
+                except Exception as e:
+                    print(e)
+                    pass
 
             except ScannerException as e:
                 token = e.message
@@ -127,8 +149,11 @@ class Parser(object):
             pointer += len(token)
 
         try:
-            while not self.diagram.move_forward('$'):
+            while not self.diagram.move_forward('$', '$'):
                 pass
+        except SemanticException as e:
+            line_number = input_str.count('\n')
+            semantic_errors[line_number].append(e.message)
         except ParserException:
             line_number = input_str.count('\n')
             if number_of_failure > 0:
@@ -137,8 +162,11 @@ class Parser(object):
             else:
                 parser_errors[line_number].append(
                     "Syntax Error! Malformed Input")
+        except Exception as e:
+            print (e)
+            pass
 
-        return self.diagram.parse_tree, scanner_errors, parser_errors
+        return self.diagram.intermediate_code_generator.program_block, scanner_errors, parser_errors, semantic_errors
 
 
 def parse_file(input_file, grammar_file, first_set_file, follow_set_file,
@@ -172,12 +200,17 @@ def parse_file(input_file, grammar_file, first_set_file, follow_set_file,
 
     diagram = Diagram(grammar, first_set, follow_set)
     parser = Parser(diagram)
-    parse_tree, scanner_errors, parser_errors = parser.parse(input_str)
+    program_block, scanner_errors, parser_errors, semantic_errors = parser.parse(input_str)
 
     with open(output_file, 'w') as f:
-        for action, level in parse_tree:
-            output = '|' * level + action
-            f.write(output + '\n')
+        def xstr(x):
+            if x is None:
+                return ''
+            return x
+        for i, inst in enumerate(program_block):
+            if len(inst) != 4:
+                inst = (None, None, None, None)
+            f.write('%s\t(%s,%s,%s,%s)\n' % (i, inst[0] or '', xstr(inst[1]), xstr(inst[2]), xstr(inst[3])))
 
     with open(error_file, 'w') as f:
         if scanner_errors:
@@ -191,5 +224,12 @@ def parse_file(input_file, grammar_file, first_set_file, follow_set_file,
             for i in parser_errors.keys():
                 output = '%s.' % (i + 1)
                 for error in parser_errors[i]:
+                    output += ' %s' % str(error)
+                f.write(output + '\n')
+
+        if semantic_errors:
+            for i in semantic_errors.keys():
+                output = '%s.' % (i + 1)
+                for error in semantic_errors[i]:
                     output += ' %s' % str(error)
                 f.write(output + '\n')
