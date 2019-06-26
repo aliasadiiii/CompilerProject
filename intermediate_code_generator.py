@@ -6,9 +6,10 @@ class SemanticException(Exception):
 
 class IntermediateCodeGenerator(object):
     def __init__(self):
+        self.is_ok = True
         self.scope = 0
 
-        self.symbol_table = {'output': (0, 'func', 1, 200, 'void', 1)}
+        self.symbol_table = {('output', 0): ('func', 1, 200, 'void', 1)}
         self.semantic_stack = []
 
         self.program_block = [(), ('ASSIGN', '#0', 202, None),
@@ -22,13 +23,23 @@ class IntermediateCodeGenerator(object):
         self.temporary_ptr += 1
         return ptr
 
+    def get_scope(self, name):
+        late_scope = -1
+        for key, sc in self.symbol_table.keys():
+            if key == name:
+                late_scope = max(late_scope, sc)
+        return late_scope
+
     def run_routine(self, method):
+        if not self.is_ok:
+            return
+
         if method == 'int-dec':
             name = self.semantic_stack.pop()
             kind = self.semantic_stack.pop()
             if kind == 'void':
                 raise SemanticException("Illegal type of void.")
-            self.symbol_table[name] = (self.scope, kind, self.data_ptr)
+            self.symbol_table[(name, self.scope)] = (kind, self.data_ptr)
             self.data_ptr += 1
 
         if method == 'arr-dec':
@@ -37,11 +48,17 @@ class IntermediateCodeGenerator(object):
             kind = self.semantic_stack.pop()
             if kind == 'void':
                 raise SemanticException("Illegal type of void.")
-            self.symbol_table[name] = (self.scope, 'array', self.data_ptr)
+            self.symbol_table[(name, self.scope)] = ('arr', self.data_ptr)
             self.data_ptr += cnt
 
         if method == 'start-func-dec':
+            name = self.semantic_stack.pop()
+            kind = self.semantic_stack.pop()
             self.scope += 1
+            self.semantic_stack.append(len(self.program_block))
+            self.semantic_stack.append(kind)
+            self.semantic_stack.append(name)
+            self.program_block.append(())
             self.semantic_stack.append(0)
 
         if method == 'func-int-dec':
@@ -50,7 +67,7 @@ class IntermediateCodeGenerator(object):
             self.semantic_stack[-1] += 1
             if kind == 'void':
                 raise SemanticException("Illegal type of void.")
-            self.symbol_table[name] = (self.scope, 'int', self.data_ptr)
+            self.symbol_table[(name, self.scope)] = ('int', self.data_ptr)
             self.data_ptr += 1
 
         if method == 'func-arr-dec':
@@ -59,7 +76,7 @@ class IntermediateCodeGenerator(object):
             self.semantic_stack[-1] += 1
             if kind == 'void':
                 raise SemanticException("Illegal type of void.")
-            self.symbol_table[name] = (self.scope, 'arr', self.data_ptr)
+            self.symbol_table[(name, self.scope)] = ('arr', self.data_ptr)
             self.data_ptr += 1
 
         if method == 'end-func-dec':
@@ -71,10 +88,11 @@ class IntermediateCodeGenerator(object):
             kind = self.semantic_stack.pop()
 
             self.scope -= 1
-            self.symbol_table[name] = (self.scope, 'func',
-                                       len(self.program_block),
-                                       self.data_ptr - cnt, kind, cnt)
+            self.symbol_table[(name, self.scope)] = \
+                ('func', len(self.program_block),
+                 self.data_ptr - cnt, kind, cnt)
 
+            self.semantic_stack.append('func')
             self.semantic_stack.append(self.data_ptr)
             self.program_block.append(('ASSIGN', '#0', self.data_ptr + 1, None))
             self.data_ptr += 2
@@ -83,30 +101,29 @@ class IntermediateCodeGenerator(object):
             self.scope += 1
 
         if method == 'end-scope':
-            self.symbol_table = {key: self.symbol_table[key]
-                                 for key in self.symbol_table.keys()
-                                 if self.symbol_table[key][0] < self.scope}
+            self.symbol_table = {(key, sc): self.symbol_table[(key, sc)]
+                                 for key, sc in self.symbol_table.keys()
+                                 if sc < self.scope}
             self.scope -= 1
 
         if method == 'get-arr':
             idx = self.semantic_stack.pop()
             name = self.semantic_stack.pop()
-            if name not in self.symbol_table.keys():
+            if name not in [key for key, sc in self.symbol_table.keys()]:
                 raise SemanticException("'%s' is not defined." % name)
-            if self.symbol_table[name][1] != 'arr':
+            if self.symbol_table[(name, self.get_scope(name))][0] != 'arr':
                 raise SemanticException("Type mismatch in operands.")
-
             ptr = self.get_temp()
-            self.program_block.append(('ADD', idx, '#%s' % self.symbol_table[name][2], ptr))
+            self.program_block.append(('ADD', idx, '#%s' % self.symbol_table[(name, self.get_scope(name))][1], ptr))
             self.semantic_stack.append('@%s' % ptr)
 
         if method == 'get-int':
             name = self.semantic_stack.pop()
-            if name not in self.symbol_table.keys():
+            if name not in [key for key, sc in self.symbol_table.keys()]:
                 raise SemanticException("'%s' is not defined." % name)
-            if self.symbol_table[name][1] != 'int':
+            if self.symbol_table[(name, self.get_scope(name))][0] not in ['int', 'arr']:
                 raise SemanticException("Type mismatch in operands.")
-            self.semantic_stack.append(self.symbol_table[name][2])
+            self.semantic_stack.append(self.symbol_table[(name, self.get_scope(name))][1])
 
         if method == 'assign':
             source = self.semantic_stack.pop()
@@ -148,11 +165,11 @@ class IntermediateCodeGenerator(object):
 
         if method == 'start-call':
             name = self.semantic_stack.pop()
-            if name not in self.symbol_table.keys():
+            if name not in [key for key, sc in self.symbol_table.keys()]:
                 raise SemanticException("'%s' is not defined." % name)
             self.semantic_stack.append(name)
-            self.semantic_stack.append(self.symbol_table[name][3])
-            self.semantic_stack.append(self.symbol_table[name][5])
+            self.semantic_stack.append(self.symbol_table[(name, self.get_scope(name))][2])
+            self.semantic_stack.append(self.symbol_table[(name, self.get_scope(name))][4])
 
         if method == 'add-call-arg':
             exp = self.semantic_stack.pop()
@@ -176,7 +193,7 @@ class IntermediateCodeGenerator(object):
 
             ptr = self.get_temp()
             self.program_block.append(('ASSIGN', "#%d" % (len(self.program_block) + 2), idx, None))
-            self.program_block.append(('JP', self.symbol_table[name][2], None, None))
+            self.program_block.append(('JP', self.symbol_table[(name, self.get_scope(name))][1], None, None))
             self.program_block.append(('ASSIGN', idx + 1, ptr, None))
             self.semantic_stack.append(ptr)
 
@@ -185,25 +202,33 @@ class IntermediateCodeGenerator(object):
 
         if method == 'return-value':
             exp = self.semantic_stack.pop()
-            idx = self.semantic_stack.pop()
+            idx = -1
+            for i in range(len(self.semantic_stack)-1, -1, -1):
+                if self.semantic_stack[i] == 'func':
+                    idx = self.semantic_stack[i+1]
             self.program_block.append(('ASSIGN', exp, idx + 1, None))
-            self.semantic_stack.append(idx)
 
         if method == 'return-call':
-            idx = self.semantic_stack.pop()
+            idx = -1
+            for i in range(len(self.semantic_stack)-1, -1, -1):
+                if self.semantic_stack[i] == 'func':
+                    idx = self.semantic_stack[i+1]
             self.program_block.append(('JP', '@%s' % idx, None, None))
-            self.semantic_stack.append(idx)
 
         if method == 'end-func':
             idx = self.semantic_stack.pop()
-            if 'main' not in self.symbol_table.keys():
+            if 'main' not in [key for key, sc in self.symbol_table.keys()]:
                 self.program_block.append(('JP', '@%s' % idx, None, None))
 
+            self.semantic_stack.pop()
+            idx = self.semantic_stack.pop()
+            self.program_block[idx] = ('JP', len(self.program_block), None, None)
+
         if method == 'end-program':
-            if 'main' not in self.symbol_table:
+            if 'main' not in [key for key, sc in self.symbol_table.keys()]:
                 raise SemanticException('main function not found!')
 
-            self.program_block[0] = ('JP', self.symbol_table['main'][2], None, None)
+            self.program_block[0] = ('JP', self.symbol_table[('main', self.get_scope('main'))][1], None, None)
 
         if method == 'save':
             self.semantic_stack.append(len(self.program_block))

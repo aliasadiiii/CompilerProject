@@ -133,15 +133,13 @@ class Parser(object):
                         except ParserExceptionWithoutSkip as e:
                             parser_errors[line_number].append(e.message)
                             number_of_failure = number_of_failure + 1
+                        except SemanticException as e:
+                            semantic_errors[line_number].append(e.message)
+                            self.diagram.intermediate_code_generator.is_ok = False
                     number_of_failure = 0
-                except SemanticException as e:
-                    semantic_errors[line_number].append(e.message)
                 except ParserException as e:
                     parser_errors[line_number].append(e.message)
                     number_of_failure = number_of_failure + 1
-                except Exception as e:
-                    print(e)
-                    pass
 
             except ScannerException as e:
                 token = e.message
@@ -154,6 +152,7 @@ class Parser(object):
         except SemanticException as e:
             line_number = input_str.count('\n')
             semantic_errors[line_number].append(e.message)
+            self.diagram.intermediate_code_generator.is_ok = False
         except ParserException:
             line_number = input_str.count('\n')
             if number_of_failure > 0:
@@ -162,9 +161,6 @@ class Parser(object):
             else:
                 parser_errors[line_number].append(
                     "Syntax Error! Malformed Input")
-        except Exception as e:
-            print (e)
-            pass
 
         return self.diagram.intermediate_code_generator.program_block, scanner_errors, parser_errors, semantic_errors
 
